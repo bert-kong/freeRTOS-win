@@ -28,6 +28,10 @@
 #ifndef PROJDEFS_H
 #define PROJDEFS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Defines the prototype to which task functions must conform.  Defined in this
  * file to ensure the type is known before portable.h is included.
@@ -117,6 +121,9 @@ itself. */
 #define pdLITTLE_ENDIAN					pdFREERTOS_LITTLE_ENDIAN
 #define pdBIG_ENDIAN					pdFREERTOS_BIG_ENDIAN
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PROJDEFS_H */
 

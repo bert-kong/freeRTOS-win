@@ -28,6 +28,10 @@
 #ifndef SEMAPHORE_H
 #define SEMAPHORE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef INC_FREERTOS_H
 	#error "include FreeRTOS.h" must appear in source files before "include semphr.h"
 #endif
@@ -1135,6 +1139,10 @@ typedef QueueHandle_t SemaphoreHandle_t;
  */
 #define uxSemaphoreGetCount( xSemaphore ) uxQueueMessagesWaiting( ( QueueHandle_t ) ( xSemaphore ) )
 
+
+#ifdef __cplusplus
+}
+#endif
 #endif /* SEMAPHORE_H */
 
 

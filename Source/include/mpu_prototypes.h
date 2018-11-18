@@ -37,6 +37,10 @@
 #ifndef MPU_PROTOTYPES_H
 #define MPU_PROTOTYPES_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* MPU versions of tasks.h API functions. */
 BaseType_t MPU_xTaskCreate( TaskFunction_t pxTaskCode, const char * const pcName, const uint16_t usStackDepth, void * const pvParameters, UBaseType_t uxPriority, TaskHandle_t * const pxCreatedTask );
 TaskHandle_t MPU_xTaskCreateStatic( TaskFunction_t pxTaskCode, const char * const pcName, const uint32_t ulStackDepth, void * const pvParameters, UBaseType_t uxPriority, StackType_t * const puxStackBuffer, StaticTask_t * const pxTaskBuffer );
@@ -150,6 +154,9 @@ StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes, si
 StreamBufferHandle_t MPU_xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes, size_t xTriggerLevelBytes, BaseType_t xIsMessageBuffer, uint8_t * const pucStreamBufferStorageArea, StaticStreamBuffer_t * const pxStaticStreamBuffer );
 
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* MPU_PROTOTYPES_H */
 
