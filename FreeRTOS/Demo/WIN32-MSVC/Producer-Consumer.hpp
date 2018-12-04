@@ -8,46 +8,47 @@ template<typename T, uint8_t N>
 class CircularBuffer
 {
 public:
-	explicit
-	CircularBuffer()
-		:m_size(N),
-		 m_rd(0),
-		 m_wr(0),
-		 m_lock(::xSemaphoreCreateMutex())
-	{
-	}
+    explicit
+    CircularBuffer()
+        :m_size(N),
+         m_rd(0),
+         m_wr(0),
+         m_lock(::xSemaphoreCreateBinary())
+    {
+        ::xSemaphoreGive(m_lock);
+    }
 
-	~CircularBuffer()
-	{
-	}
+    ~CircularBuffer()
+    {
+    }
 
 
-	const bool put(const T &);
-	const bool get(T &);
+    const bool put(const T &);
+    const bool get(T &);
 
 protected:
-	inline const bool isFull() const
-	{
-		return m_rd == ((m_wr + 1) % m_size);
-	}
+    inline const bool isFull() const
+    {
+        return m_rd == ((m_wr + 1) % m_size);
+    }
 
-	inline const bool isEmpty() const
-	{
-		return m_rd == m_wr;
-	}
-
-private:
-	CircularBuffer(const CircularBuffer &);
-	const CircularBuffer &operator=(const CircularBuffer &);
-
+    inline const bool isEmpty() const
+    {
+        return m_rd == m_wr;
+    }
 
 private:
-	const uint8_t m_size;
-	T m_buffer[N];
+    CircularBuffer(const CircularBuffer &);
+    const CircularBuffer &operator=(const CircularBuffer &);
 
-	uint8_t m_rd;
-	uint8_t m_wr;
-	SemaphoreHandle_t m_lock;
+
+private:
+    const uint8_t m_size;
+    T m_buffer[N];
+
+    uint8_t m_rd;
+    uint8_t m_wr;
+    SemaphoreHandle_t m_lock;
 };
 
 
@@ -55,26 +56,30 @@ template<typename T, uint8_t N>
 class Producer
 {
 public:
-	enum
-	{
-		NUM_OF_SLOTS = N,
-	};
+    enum
+    {
+        NUM_OF_SLOTS = N,
+    };
 
 public:
-	static void run(void *data);
+    static void run(void *data);
 
 public:
-	Producer(CircularBuffer<T, N> &queue)
-		:m_queue(queue)
-	{
-	}
+    explicit
+    Producer(CircularBuffer<T, N> &queue)
+        :m_queue(queue)
+    {
+    }
 
-	
-
-	const bool write(const T &);
+    const bool write(const T &);
 
 private:
-	CircularBuffer<T, N> &m_queue;
+    Producer();
+    Producer(const Producer &);
+    const Producer &operator=(const Producer &);
+
+private:
+    CircularBuffer<T, N> &m_queue;
 };
 
 
@@ -82,24 +87,30 @@ template<typename T, uint8_t N>
 class Consumer
 {
 public:
-	enum
-	{
-		NUM_OF_SLOTS = N,
-	};
+    enum
+    {
+        NUM_OF_SLOTS = N,
+    };
 
 public:
-	static void run(void *data);
+    static void run(void *data);
 
 public:
-	Consumer(CircularBuffer<T, N> &queue)
-		:m_queue(queue)
-	{
-	}
+    explicit
+    Consumer(CircularBuffer<T, N> &queue)
+        :m_queue(queue)
+    {
+    }
 
-	const bool read(T &obj);
+    const bool read(T &obj);
 
 private:
-	CircularBuffer<T, N> &m_queue;
+    Consumer();
+    Consumer(const Consumer &);
+    const Consumer &operator=(const Consumer &);
+
+private:
+    CircularBuffer<T, N> &m_queue;
 };
 
 
