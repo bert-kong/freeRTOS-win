@@ -2,7 +2,9 @@
 #include "Producer-Consumer.hpp"
 #include "task.h"
 
-#define RUN_ITERATIONS 1000000
+#define RUN_ITERATIONS 100000
+static	TaskHandle_t prod_handle = NULL;
+static	TaskHandle_t con_handle = NULL;
 
 template<typename T, uint8_t N>
 const bool CircularBuffer<T, N>::put(const T &obj)
@@ -14,7 +16,9 @@ const bool CircularBuffer<T, N>::put(const T &obj)
 		if (isFull())
 		{
 			::xSemaphoreGive(m_lock);
-			::taskYIELD();
+
+			// set Consumer's notification value to 133
+			::xTaskNotify(con_handle, 1<<16 | 1<<8, eSetBits);
 		}
 		else
 		{
@@ -34,9 +38,42 @@ template<typename T, uint8_t N>
 const bool CircularBuffer<T, N>::get(T &obj)
 {
     bool ret = false;
+	uint32_t notify_value_enter_action = 0;         // do nothing
+	uint32_t notify_value_exit_action = 0xFFFFFFFF; // clear all bits
+	uint32_t notification_value;
+	TickType_t timeout = portMAX_DELAY; // 0xFF...
 
+	while (::xSemaphoreTake(m_lock, (TickType_t) 0)==pdTRUE)
+	{
+		if (isEmpty())
+		{
+			::xSemaphoreGive(m_lock);
+			while (::xTaskNotifyWait(notify_value_enter_action,
+								  notify_value_exit_action,
+								  &notification_value,
+				                  timeout) == pdTRUE)
+			{
+				if (!(notification_value & ((1 << 16) | (1 << 8))))
+				{
+					continue;
+				}
+				break;
+			}
+			continue;
+		}
+
+        obj = m_buffer[m_rd];
+        m_rd = (m_rd + 1U) % m_size;
+        ret = true;
+		::xSemaphoreGive(m_lock);
+		break;
+	}
+
+#if 0
     while (::xSemaphoreTake(m_lock, (TickType_t)0) == pdTRUE)
     {
+		{
+
 		if (isEmpty())
 		{
 			::xSemaphoreGive(m_lock);
@@ -51,6 +88,7 @@ const bool CircularBuffer<T, N>::get(T &obj)
 			break;
         }
     }
+#endif
 
     return ret;
 }
@@ -166,6 +204,33 @@ void Consumer<T, N>::run(void *data)
 
 }
 
+#if 0
+void task_gui(void *data)
+{
+	uint32_t value = 0;
+	uint32_t ret_value;
+	TaskHandle_t dest_task = con_handle;
+	const eNotifyAction action = eSetValueWithOverwrite;
+
+	if (con_handle==NULL)
+	{
+		return;
+	}
+
+	for(;;)
+	{
+		// write value to the consumer task's notification value
+		if (xTaskNotifyAndQuery(dest_task, 0, eNoAction, &ret_value)==pdPASS)
+		{
+			if (xTaskNotify(dest_task, &value, action)==pdPASS)
+			{
+				value += 1;
+			}
+		}
+	}
+}
+#endif
+
 
 void main_producer_consumer()
 {
@@ -173,8 +238,6 @@ void main_producer_consumer()
 	Producer<Message, 2> prod(queue);
 	Consumer<Message, 2> con(queue);
 	BaseType_t ret;
-	TaskHandle_t prod_handle;
-	TaskHandle_t con_handle;
 
 	ret = xTaskCreate(Producer<Message, 2>::run,
 					  "producer",
