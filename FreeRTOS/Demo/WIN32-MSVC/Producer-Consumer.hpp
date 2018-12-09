@@ -1,77 +1,27 @@
 
+#ifndef __PRODUCER_CONSUMER_H__
+#define __PRODUCER_CONSUMER_H__
+
 #include<cstdio>
 #include<cstdint>
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-template<typename T, uint8_t N>
-class CircularBuffer
-{
-public:
-    explicit
-    CircularBuffer()
-        :m_size(N),
-         m_rd(0),
-         m_wr(0),
-         m_lock(::xSemaphoreCreateBinary())
-    {
-        ::xSemaphoreGive(m_lock);
-    }
-
-    ~CircularBuffer()
-    {
-    }
-
-
-    const bool put(const T &);
-    const bool get(T &);
-
-protected:
-    inline const bool isFull() const
-    {
-        return m_rd == ((m_wr + 1) % m_size);
-    }
-
-    inline const bool isEmpty() const
-    {
-        return m_rd == m_wr;
-    }
-
-private:
-    CircularBuffer(const CircularBuffer &);
-    const CircularBuffer &operator=(const CircularBuffer &);
-
-
-private:
-    const uint8_t m_size;
-    T m_buffer[N];
-
-    uint8_t m_rd;
-    uint8_t m_wr;
-    SemaphoreHandle_t m_lock;
-};
-
-
-template<typename T, uint8_t N>
+template<typename T>
 class Producer
 {
-public:
-    enum
-    {
-        NUM_OF_SLOTS = N,
-    };
 
 public:
     static void run(void *data);
 
 public:
     explicit
-    Producer(CircularBuffer<T, N> &queue)
+    Producer(QueueHandle_t queue)
         :m_queue(queue)
     {
     }
 
-    const bool write(const T &);
+    const bool write(const T *);
 
 private:
     Producer();
@@ -79,30 +29,25 @@ private:
     const Producer &operator=(const Producer &);
 
 private:
-    CircularBuffer<T, N> &m_queue;
+    QueueHandle_t m_queue; 
+
 };
 
 
-template<typename T, uint8_t N>
+template<typename T>
 class Consumer
 {
-public:
-    enum
-    {
-        NUM_OF_SLOTS = N,
-    };
-
 public:
     static void run(void *data);
 
 public:
     explicit
-    Consumer(CircularBuffer<T, N> &queue)
+    Consumer(QueueHandle_t queue)
         :m_queue(queue)
     {
     }
 
-    const bool read(T &obj);
+    const bool read(T *obj);
 
 private:
     Consumer();
@@ -110,8 +55,10 @@ private:
     const Consumer &operator=(const Consumer &);
 
 private:
-    CircularBuffer<T, N> &m_queue;
+    QueueHandle_t m_queue; 
 };
 
 
 void main_producer_consumer();
+
+#endif
