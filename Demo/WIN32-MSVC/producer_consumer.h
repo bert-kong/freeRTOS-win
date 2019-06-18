@@ -5,6 +5,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+void producer_consumer();
+
 #if 0
 struct _ProducerConsumerStruct
 {
