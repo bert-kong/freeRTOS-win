@@ -5,6 +5,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+typedef struct bkMessage_t* bkMessage;
+
 void producer_consumer();
 
 #if 0
