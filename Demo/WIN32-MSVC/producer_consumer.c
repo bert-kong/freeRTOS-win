@@ -4,10 +4,13 @@
 #include <task.h>
 #include <queue.h>
 
-static BaseType_t prod_task_id, cons_task_id;
-static TaskHandle_t prod_handle = NULL;
-static TaskHandle_t cons_handle = NULL;
-static xQueueHandle m_queue_handle = NULL;
+#define MAX_MSG_SENDS 0x1000
+
+static QueueHandle_t queue;
+static TaskHandle_t prod_handle;
+static TaskHandle_t cons_handle;
+
+const int stack_size = 128 * 2;
 
 struct bkMessage_t
 {
@@ -16,96 +19,87 @@ struct bkMessage_t
 	uint32_t value;
 };
 
-#define STACK_SIZE 128 * 4
-
-
-static void producer_task(void* data)
+void producer(void* data)
 {
-	printf("debug bxkong ---> %s::0x%08x\n", __func__, prod_task_id);
+	struct bkMessage_t* msg = (struct bkMessage_t*) data;
+	int done = 1;
 	BaseType_t ret;
 
-	bkMessage msg = (bkMessage)(data);
-	msg->value = 0x20;
-
-	while (1)
+	while (done)
 	{
-		ret = xQueueSendToBack(m_queue_handle, msg, 0);
-		if (pdPASS == ret)
+		ret = xQueueSendToBack(queue, msg, 0);
+		if (ret==pdPASS)
 		{
 			msg->id += 1;
+			if (msg->id == MAX_MSG_SENDS)
+			{
+				done = 0;
+			}
 		}
-		else 
+		else if (ret == errQUEUE_FULL)
 		{
+			printf("queue is full\n");
 			taskYIELD();
 		}
 	}
 }
 
-static void consumer_task(void* unused)
+void consumer(void* data)
 {
-	printf("debug bxkong ---> %s\n", __func__);
-	uint32_t valid_id;
+	int done = 1;
+	struct bkMessage_t msg;
 	BaseType_t ret;
-	uint32_t number_of_packets = 0x100;
-	uint32_t start = xTaskGetTickCount();
 
-	bkMessage msg = malloc(sizeof(struct bkMessage_t));
-	
-	valid_id = 0;
-	
-	while (1)
+	while (done)
 	{
-		ret = xQueueReceive(m_queue_handle, msg, 0);
-
+		ret = xQueueReceive(queue, &msg, 0);
 		if (ret == pdPASS)
 		{
-			if (valid_id != msg->id)
+			printf("debug ---> 0x%08X\n", msg.id);
+			if (msg.id == MAX_MSG_SENDS - 1)
 			{
-				printf("error 0x%x::0x%x\n", valid_id, msg->id);
-				break;
+				done = 0;
 			}
-			if (valid_id == number_of_packets)
-			{
-				break;
-			}
-			valid_id += 1;
 		}
-		else
+		else if (ret == errQUEUE_EMPTY)
 		{
+			printf("queue is empty\n");
 			taskYIELD();
 		}
 	}
-
-	uint32_t elapsed = xTaskGetTickCount() - start;
-	printf("number of paket 0x%x::0x%x::0x%08X\n", msg->id, valid_id, elapsed);
-
-	free(msg);
 }
 
 void producer_consumer()
 {
-	printf("message size = %d\n", sizeof(struct bkMessage_t));
-	m_queue_handle = xQueueCreate(0x100, sizeof(struct bkMessage_t));
+	/* create queue */
+	queue = xQueueCreate(16 * 2, sizeof(struct bkMessage_t));
+	if (queue == NULL)
+	{
+	}
+	
+	/**
+	 * Create tasks : producer and consumer
+	 */
 
-	bkMessage msg = malloc(sizeof(struct bkMessage_t));
-	msg->id = 0;
-	strcpy(msg->name, "free RTOS task");
+	/**
+	 * struct bkMessage in this stack
+	 */
+	struct bkMessage_t msg;
+	msg.id = 0;
+	strcpy(msg.name, "producer");
+	msg.value = 1000;
 
-	prod_handle = xTaskCreate(producer_task,
-		"producer",
-		STACK_SIZE, /* stack size */
-		msg, /* data */
-		tskIDLE_PRIORITY + 1, /* priority */
-		&prod_handle);
+	BaseType_t ret;
+	ret= xTaskCreate(producer, "producer", stack_size, &msg, tskIDLE_PRIORITY+2, &prod_handle);
+	if (ret != pdPASS)
+	{
+	}
 
-	cons_handle = xTaskCreate(consumer_task,
-		"consumer",
-		STACK_SIZE,
-		NULL,
-		tskIDLE_PRIORITY + 1,
-		&cons_handle);
+	ret = xTaskCreate(consumer, "consumer", stack_size, NULL, tskIDLE_PRIORITY+2, &cons_handle);
+	if (ret != pdPASS)
+	{
+	}
 
+	/* start scheduler */
 	vTaskStartScheduler();
-
 }
-
