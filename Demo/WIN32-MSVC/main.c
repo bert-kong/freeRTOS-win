@@ -150,7 +150,8 @@ int main( void )
 	of this file. */
 	#if ( mainCREATE_SIMPLE_BLINKY_DEMO_ONLY == 1 )
 	{
-		producer_consumer();
+		uiTraceStart();
+		main_producer_consumer();
 	}
 	#else
 	{

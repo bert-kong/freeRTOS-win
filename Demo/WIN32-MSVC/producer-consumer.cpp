@@ -1,154 +1,159 @@
-#include "producer-consumer.hpp"
 #include <stdio.h>
 #include <string>
+#include <stdexcept>
+#include "producer-consumer.hpp"
 
-#include "task.h"
-#define Q_CAPACITY 2
+#define MAX_NUMBER_PACKAGE 1000
+#define __BLOCK_TASK__
+
+#define QUEUE_SIZE 100
 static TaskHandle_t prod, cons;
 static float max_value = 1000;
-static bk::Queue<bk::BankAccount<int>, Q_CAPACITY> *queue=NULL;
 
-std::string enum2string(const int state)
+const int bk::ProducerConsumer<QUEUE_SIZE>::stack_size = 128;
+const int bk::ProducerConsumer<QUEUE_SIZE>::priority = tskIDLE_PRIORITY + 1;;
+
+/**
+ *   Implementation of ProducerConsumer
+ */
+template<uint8_t N>
+bk::ProducerConsumer<N>::ProducerConsumer()
+	:m_queue(xQueueCreate(N, sizeof(bk::ProducerConsumer<QUEUE_SIZE>::BankAccount))),
+	 m_done(false), m_id(0), m_balance(0), m_previous_value(0)
 {
-	switch (state)
+	if (m_queue==NULL)
 	{
-	case eRunning:
-		return  std::string("running");
-	case eReady:
-		return std::string("ready");
-	case eBlocked:
-		return std::string("blocked");
-	case eSuspended:
-		return std::string("suspended");
-	case eDeleted:
-		return std::string("deleted");
-	case eInvalid:
-		return std::string("invalid");
-	default:
-		return std::string("eInvalid");
-	}
-
-	return std::string("");
-}
-
-void producer(void* data)
-{
-	bk::BankAccount<int>* acnt = static_cast<bk::BankAccount<int> *>(data);
-	int done = 0;
-	int value = 0;
-	TaskStatus_t task;
-
-	while (!done)
-	{
-		/* queue tasks state */
-		vTaskGetInfo(prod, &task, pdTRUE, eInvalid);
-		printf("producer task current state ---> %s\n", enum2string(task.eCurrentState).c_str());
-		printf("producer task current priority ---> %d\n", task.uxCurrentPriority);
-
-		vTaskGetInfo(cons, &task, pdTRUE, eInvalid);
-		printf("consumer task current state ---> %s::%d\n", enum2string(task.eCurrentState).c_str(), task.eCurrentState);
-		printf("consumer task current priority ---> %d\n", task.uxCurrentPriority);
-
-		/* if return !=0, yield */
-		if (queue->push_back(*acnt))
-		{
-			//printf("producer yield\n");
-			taskYIELD();
-		}
-		else
-		{
-			value += 1;
-			acnt->deposit(value);
-			if (value > max_value)
-			{
-				done = 1;
-			}
-		}
-	}
-	printf("debug ---> producer\n");
-}
-
-void consumer(void* data)
-{
-	bk::BankAccount<int> acnt;
-
-	int done = 0;
-	while (!done)
-	{
-		if (queue->pop_front(&acnt))
-		{
-			// empty
-			//printf("consumer yield\n");
-			taskYIELD();
-		}
-		else
-		{
-			printf("consumer ---> %d\n", acnt.balance());
-			if (acnt.balance()==max_value-1)
-			{
-				done = 1;
-			}
-		}
-	}
-	printf("debug ---> consumer\n");
-}
-
-
-void test_queue()
-{
-	bk::Queue<bk::BankAccount<float>> queue;
-
-	for (int i = 0; i < 10; i++)
-	{
-		queue.push_back(bk::BankAccount<float>(1000.0 * (i + 1)));
+		throw std::invalid_argument("failed to create queue");
+		::printf("debug ---> queue create failed\n");
 	}
 }
 
-void producer_consumer()
+template<uint8_t N>
+void bk::ProducerConsumer<N>::generateData()
 {
-	/**
-	 * struct { func, name, stack size, parameter, priority, *handle) 
-	 */
+}
+
+template<uint8_t N>
+void bk::ProducerConsumer<N>::onSendToQueue()
+{
+	char buf[32];
+
+	::sprintf(buf, "balance %d", m_balance);
+	bk::ProducerConsumer<N>::BankAccount account(m_id, m_balance, buf);
 
 	BaseType_t ret;
-	queue = new bk::Queue<bk::BankAccount<int>, Q_CAPACITY>();
-	if (queue==NULL)
+#ifdef __BLOCK_TASK__
+	ret = xQueueSendToBack(m_queue, &account, portMAX_DELAY);
+	//::printf("debug ---> %s::%d\n", __func__, ret);
+#else
+	while (true)
 	{
-		return;
+		ret = xQueueSendToBack(m_queue, &account, 0);
+
+		if (ret==errQUEUE_FULL)
+		{
+			::taskYIELD();
+		}
+		else
+		{
+			/* successfull */
+			break;
+		}
 	}
-
-
-	bk::BankAccount<int> acct;
-	ret = xTaskCreate(producer,   /* task */
-		              "producer", /* name */
-		              128,        /* stack */
-		              &acct,      /* data */
-		              tskIDLE_PRIORITY + 1,  /* priority */
-		              &prod /* task handle */ );
-
-	if (ret == pdPASS)
+#endif
+	
+	m_id += 1;
+	m_balance += 10;
+	if (m_id == MAX_NUMBER_PACKAGE)
 	{
-		printf("pdPASS task producer 0x%x::0x%x\n", ret, prod);
+		m_done = true;
+	}
+}
+
+template<uint8_t N>
+void bk::ProducerConsumer<N>::processData()
+{
+	BaseType_t ret;
+	bk::ProducerConsumer<N>::BankAccount account(0, 0, "name");
+
+#ifdef __BLOCK_TASK__
+	ret = ::xQueueReceive(m_queue, &account, portMAX_DELAY);
+#else
+	while (pdPASS!=::xQueueReceive(m_queue, &account, 0))
+	{
+		::taskYIELD();
+	}
+#endif
+
+	if (account.id == m_previous_value)
+	{
+		::printf("Id = %d, %s\n", account.id, account.getName());
+		m_previous_value = account.id + 1;
 	}
 	else
 	{
-		printf("pdFAIL task consumer 0x%x::0x%x\n", ret, cons);
-		return;
+		::printf("-------------> error %d <--------------\n", account.id);
+		m_done = true;
+	}
+}
+
+
+/**
+ *  Static Functions
+ */
+void bk::ProducerConsumer<QUEUE_SIZE>::producer(void* data)
+{
+	uint32_t start = ::xTaskGetTickCount();
+	bk::ProducerConsumer<QUEUE_SIZE>* prod = reinterpret_cast<bk::ProducerConsumer<QUEUE_SIZE> *>(data);
+
+	while (!prod->done())
+	{
+		prod->onSendToQueue();
 	}
 
-	ret = xTaskCreate(consumer, "consumer", 128, NULL, tskIDLE_PRIORITY + 1, &cons);
-	if (ret == pdPASS)
+
+	::printf("debug ---> %s::0x%08X\n", __func__, ::xTaskGetTickCount()-start);
+}
+
+void bk::ProducerConsumer<QUEUE_SIZE>::consumer(void* data)
+{
+	bk::ProducerConsumer<QUEUE_SIZE>* cons = reinterpret_cast<bk::ProducerConsumer<QUEUE_SIZE> *>(data);
+
+	while (true)
 	{
-		printf("pd PASS task consumer 0x%x::0x%x\n", ret, cons);
-	}
-	else
-	{
-		printf("pdFAIL task consumer 0x%x::0x%x\n", ret, cons);
-		vTaskDelete(prod);
-		return;
+		if (cons->done() && cons->isQueueEmpty())
+		{
+			break;
+		}
+		cons->processData();
 	}
 
+	::printf("debug ---> %s\n", __func__);
+}
+
+void main_producer_consumer()
+{
+	bk::ProducerConsumer<QUEUE_SIZE> prod_cons;
+
+	BaseType_t ret;
+
+	ret = xTaskCreate(bk::ProducerConsumer<QUEUE_SIZE>::producer,
+					  "producer",
+		              bk::ProducerConsumer<QUEUE_SIZE>::stack_size,
+		              &prod_cons,
+		              bk::ProducerConsumer<QUEUE_SIZE>::priority,
+		              &prod);
+
+
+	ret = xTaskCreate(bk::ProducerConsumer<QUEUE_SIZE>::consumer,
+					  "consumer",
+		              bk::ProducerConsumer<QUEUE_SIZE>::stack_size,
+		              &prod_cons,
+		              bk::ProducerConsumer<QUEUE_SIZE>::priority,
+		              &cons);
+	
 	vTaskStartScheduler();
+	::printf("end of start\n");
 
 	for (;;)
 	{
