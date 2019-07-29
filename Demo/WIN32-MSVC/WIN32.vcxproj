@@ -55,6 +55,7 @@
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <AdditionalOptions>/wd4210 /wc4574 %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4574;4820;4668;4255;4710;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -108,6 +109,7 @@
     <ClCompile Include="..\Common\Minimal\StreamBufferInterrupt.c" />
     <ClCompile Include="..\Common\Minimal\TaskNotify.c" />
     <ClCompile Include="..\Common\Minimal\timerdemo.c" />
+    <ClCompile Include="bk-List.cpp" />
     <ClCompile Include="main.c">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -138,6 +140,7 @@
     <ClInclude Include="..\..\Source\include\stream_buffer.h" />
     <ClInclude Include="..\..\Source\include\timers.h" />
     <ClInclude Include="..\..\Source\portable\MSVC-MingW\portmacro.h" />
+    <ClInclude Include="bk-List.hpp" />
     <ClInclude Include="FreeRTOSConfig.h" />
     <ClInclude Include="..\..\Source\include\croutine.h" />
     <ClInclude Include="..\..\Source\include\FreeRTOS.h" />

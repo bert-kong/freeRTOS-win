@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include "producer-consumer.hpp"
+#include "bk-List.hpp"
 
 #define MAX_NUMBER_PACKAGE 1000
 #define __BLOCK_TASK__
@@ -131,31 +132,19 @@ void bk::ProducerConsumer<QUEUE_SIZE>::consumer(void* data)
 	::printf("debug ---> %s\n", __func__);
 }
 
+void test_bk_list()
+{
+	bk::List pxDelayedTaskList;
+	bk::task_control_block_t current_tcb;
+	bk::task_control_block_t current_tcb2;
+
+	bk::List::list_item_t item;
+
+	pxDelayedTaskList.insert(&current_tcb.xEventListItem);
+	pxDelayedTaskList.insert(&current_tcb2.xEventListItem);
+}
+
 void main_producer_consumer()
 {
-	bk::ProducerConsumer<QUEUE_SIZE> prod_cons;
-
-	BaseType_t ret;
-
-	ret = xTaskCreate(bk::ProducerConsumer<QUEUE_SIZE>::producer,
-					  "producer",
-		              bk::ProducerConsumer<QUEUE_SIZE>::stack_size,
-		              &prod_cons,
-		              bk::ProducerConsumer<QUEUE_SIZE>::priority,
-		              &prod);
-
-
-	ret = xTaskCreate(bk::ProducerConsumer<QUEUE_SIZE>::consumer,
-					  "consumer",
-		              bk::ProducerConsumer<QUEUE_SIZE>::stack_size,
-		              &prod_cons,
-		              bk::ProducerConsumer<QUEUE_SIZE>::priority,
-		              &cons);
-	
-	vTaskStartScheduler();
-	::printf("end of start\n");
-
-	for (;;)
-	{
-	}
+	test_bk_list();
 }
